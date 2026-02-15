@@ -1,0 +1,58 @@
+version: '3'
+services:
+  # The Database Service (Since you don't have local MySQL)
+  db:
+    container_name: matomo-db
+    image: mariadb:10.11
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    restart: always
+    volumes:
+      - matomo-db-data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # The Matomo Application
+  app:
+    container_name: matomo-app
+    image: matomo
+    restart: always
+    volumes:
+      - matomo-app-data:/var/www/html
+    ports:
+      - "8080:80"
+    environment:
+      - MATOMO_DATABASE_HOST=db
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    depends_on:
+      - db
+
+# Persistent storage so you don't lose data when you turn it off
+volumes:
+  matomo-db-data:
+    name: matomo-db-data
+  matomo-app-data:
+    name: matomo-app-data
